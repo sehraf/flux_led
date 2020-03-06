@@ -721,8 +721,8 @@ class WifiLedBulb():
             return
       
         # typical response:
-        #pos  0  1  2  3  4  5  6  7  8  9 10
-        #    66 01 24 39 21 0a ff 00 00 01 99
+        # pos  0  1  2  3  4  5  6  7  8  9 10
+        #     66 01 24 39 21 0a ff 00 00 01 99
         #     |  |  |  |  |  |  |  |  |  |  |
         #     |  |  |  |  |  |  |  |  |  |  checksum
         #     |  |  |  |  |  |  |  |  |  warmwhite
@@ -738,9 +738,15 @@ class WifiLedBulb():
         #    
         # response from a 3-channel LED strip controller:
         #    81 a1 23 00 b2 51 00 ff 00 02 03 00 3c 88
+        #     |  |  |  |  |  |  |  |  |  |  |  |  |  |
+        #     |  |  |  |  |  speed (0x01 to 0x64 = 1 to 100)
+        #     |  |  |  |  preset pattern (lo)
+        #     |  |  |  preset pattern (hi)
+        #           off(24)/on(23)
+        #
         # response from a 5-channel LEDENET controller:
-        #pos  0  1  2  3  4  5  6  7  8  9 10 11 12 13
-        #    81 25 23 61 21 06 38 05 06 f9 01 00 0f 9d
+        # pos  0  1  2  3  4  5  6  7  8  9 10 11 12 13
+        #      81 25 23 61 21 06 38 05 06 f9 01 00 0f 9d
         #     |  |  |  |  |  |  |  |  |  |  |  |  |  |
         #     |  |  |  |  |  |  |  |  |  |  |  |  |  checksum
         #     |  |  |  |  |  |  |  |  |  |  |  |  color mode (f0 colors were set, 0f whites, 00 all were set)
@@ -820,8 +826,11 @@ class WifiLedBulb():
     def __str__(self):
         rx = self.raw_state
         mode = self.mode
-
-        pattern = rx[3]
+        if not self.stripprotocol:
+            pattern = rx[3]
+        else:
+            # Reconstruct pattern number
+            pattern = (rx[3] << 8) + rx[4]
         ww_level = rx[9]
         power_state = rx[2]
         power_str = "Unknown power state"
@@ -832,7 +841,10 @@ class WifiLedBulb():
             power_str = "OFF "
 
         delay = rx[5]
-        speed = utils.delayToSpeed(delay)
+        if not self.stripprotocol:
+            speed = utils.delayToSpeed(delay)
+        else:
+            speed = int(rx[5])
         if mode == "color":
             red = rx[6]
             green = rx[7]
@@ -943,7 +955,10 @@ class WifiLedBulb():
 
     def getSpeed(self):
         delay = self.raw_state[5]
-        speed = utils.delayToSpeed(delay)
+        if not self.stripprotocol:
+            speed = utils.delayToSpeed(delay)
+        else:
+            speed = int(delay)
         return speed
 
     def setRgbw(self, r=None, g=None, b=None, w=None, persist=True,
@@ -1001,7 +1016,7 @@ class WifiLedBulb():
         #  persistence (31 for true / 41 for false)
         #
 
-        if brightness != None:
+        if brightness is not None:
             (r, g, b) = self._calculateBrightness((r, g, b), brightness)
 
         # The original LEDENET protocol
@@ -1159,8 +1174,11 @@ class WifiLedBulb():
             #print "Pattern must be between 0x25 and 0x38"
             raise Exception
 
-        delay = utils.speedToDelay(speed)
-        #print "speed {}, delay 0x{:02x}".format(speed,delay)
+        if self.stripprotocol:
+            delay = int(speed)
+        else:
+            delay = utils.speedToDelay(speed)
+        # print "speed {}, delay 0x{:02x}".format(speed,delay)
         pattern_set_msg = bytearray([0x61])
         if self.stripprotocol:
             pattern_set_msg.append(pattern >> 8)
