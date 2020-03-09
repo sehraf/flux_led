@@ -464,7 +464,8 @@ class LedTimer():
         txt += "{:02}:{:02}  ".format(self.hour,self.minute)
 
         if self.repeat_mask == 0:
-            txt += "Once: {:04}-{:02}-{:02}".format(self.year,self.month,self.day)
+            txt += "Once: {:04}-{:02}-{:02}".format(
+                self.year, self.month, self.day)
         else:
             bits = [LedTimer.Su,LedTimer.Mo,LedTimer.Tu,LedTimer.We,LedTimer.Th,LedTimer.Fr,LedTimer.Sa]
             for b in bits:
@@ -477,7 +478,8 @@ class LedTimer():
         txt += "  "
         if self.pattern_code == 0x61:
             if self.warmth_level != 0:
-                txt += "Warm White: {}%".format(utils.byteToPercent(self.warmth_level))
+                txt += "Warm White: {}%".format(
+                    utils.byteToPercent(self.warmth_level))
             else:
                 color_str = utils.color_tuple_to_string((self.red,self.green,self.blue))
                 txt += "Color: {}".format(color_str)
@@ -1096,9 +1098,9 @@ class WifiLedBulb():
         blue = self.raw_state[8]
         return (red, green, blue)
 
-    def setRgb(self, r,g,b, persist=True, brightness=None, retry=2):
-        self.setRgbw(r, g, b, persist=persist, brightness=brightness,
-                     retry=retry)
+    def setRgb(self, r, g, b, persist=True, brightness=None, retry=2):
+        self.setRgbw(r, g, b, persist=persist,
+                     brightness=brightness, retry=retry)
 
     def _calculateBrightness(self, rgb, level):
         hsv = colorsys.rgb_to_hsv(*rgb)
@@ -1507,8 +1509,9 @@ def processSetTimerArgs(parser, args):
 
         if "time" not in keys:
             parser.error("This mode needs a time: {}".format(mode))
-        if  "repeat" in keys and "date" in keys:
-            parser.error("This mode only a repeat or a date, not both: {}".format(mode))
+        if "repeat" in keys and "date" in keys:
+            parser.error(
+                "This mode only a repeat or a date, not both: {}".format(mode))
 
         # validate time format
         if len(settings_dict["time"]) != 4 or not settings_dict["time"].isdigit() :
@@ -1534,7 +1537,8 @@ def processSetTimerArgs(parser, args):
             timer.setDate(dt.year, dt.month, dt.day)
         elif "date" in keys:
             try:
-                dt = datetime.datetime.strptime(settings_dict["date"], '%Y-%m-%d')
+                dt = datetime.datetime.strptime(
+                    settings_dict["date"], "%Y-%m-%d")
                 timer.setDate(dt.year, dt.month, dt.day)
             except ValueError:
                 parser.error("date is not properly formatted: YYYY-MM-DD")
@@ -1571,8 +1575,9 @@ def processSetTimerArgs(parser, args):
             #validate color val
             c = utils.color_object_to_tuple(settings_dict["color"])
             if c is None:
-                parser.error("Invalid color value: {}".format(settings_dict["color"]))
-            timer.setModeColor(c[0],c[1],c[2])
+                parser.error("Invalid color value: {}".format(
+                    settings_dict["color"]))
+            timer.setModeColor(c[0], c[1], c[2])
 
         if  mode == "preset":
             if  "code" not in keys:
@@ -1600,8 +1605,9 @@ def processSetTimerArgs(parser, args):
                 parser.error("{} mode needs a startBrightness (0% -> 100%)".format(mode))
             startBrightness = int(settings_dict["startbrightness"])
 
-            if  "endbrightness" not in keys:
-                parser.error("{} mode needs an endBrightness (0% -> 100%)".format(mode))
+            if "endbrightness" not in keys:
+                parser.error(
+                    "{} mode needs an endBrightness (0% -> 100%)".format(mode))
             endBrightness = int(settings_dict["endbrightness"])
 
             if  "duration" not in keys:
@@ -1848,11 +1854,13 @@ def main():
         try:
             bulb = WifiLedBulb(info['ipaddr'])
         except Exception as e:
-            print("Unable to connect to bulb at [{}]: {}".format(info['ipaddr'],e))
+            print("Unable to connect to bulb at [{}]: {}".format(
+                info["ipaddr"], e))
             continue
 
         if options.getclock:
-            print("{} [{}] {}".format(info['id'], info['ipaddr'],bulb.getClock()))
+            print("{} [{}] {}".format(info["id"],
+                                      info["ipaddr"], bulb.getClock()))
 
         if options.setclock:
             bulb.setClock()
@@ -1890,9 +1898,12 @@ def main():
                 options.custom[0], options.custom[1], options.custom[2]))
 
         elif options.preset is not None:
-            print("Setting preset pattern: {}, Speed={}%".
-                  format(PresetPattern.valtostr(options.preset[0]),
-                         options.preset[1]))
+            print(
+                "Setting preset pattern: {}, Speed={}%".format(
+                    PresetPattern.valtostr(
+                        options.preset[0]), options.preset[1]
+                )
+            )
             bulb.setPresetPattern(options.preset[0], options.preset[1])
 
         if options.on:
