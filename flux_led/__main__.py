@@ -43,6 +43,7 @@ import time
 import sys
 import datetime
 import colorsys
+from binascii import hexlify
 from optparse import OptionParser,OptionGroup
 import ast
 from enum import Enum, IntEnum
@@ -143,6 +144,20 @@ class utils:
         return speed
 
     @staticmethod
+    def delayToSpeedStrip(delay):
+        # value range is 0x01 (0%) to 0x64 (100%)
+        d = delay - 0x1
+        # boundary check
+        if d > 0x63:
+            d = 0x63
+        elif d < 0x0:
+            d = 0
+        # value is now in range 0x0 to 0x63
+        speed =  d * 100.0 / (0x64 - 0x1)
+        # the value is now a bit off, e.g, 23.232323 (=23%) or 74.74747474 (=75%)
+        return round(speed)
+
+    @staticmethod
     def speedToDelay(speed):
         # speed is 0-100, delay is 1-31
         if speed > 100:
@@ -154,6 +169,16 @@ class utils:
         # translate from 0-30 to 1-31
         delay = delay + 1
         return delay
+
+    @staticmethod
+    def speedToDelayStrip(speed):
+        # speed is 0-100, delay is 0x01 to 0x64
+        # scale to 0x0 - 0x63
+        d = speed / 100.0 * 0x63
+        # shift to 0x1 - 0x63
+        d += 1
+        # round
+        return round(d + 1)
 
     @staticmethod
     def byteToPercent(byte):
@@ -170,6 +195,326 @@ class utils:
         if percent < 0:
             percent = 0
         return int((percent * 255)/100)
+
+class PresetPatternStrip(IntEnum):
+    # cat patterns-sorted.txt | sed -s 's/\,//g' | sed -s 's/\s/_/g' | sed -E 's/^(.*)_:_(.*)_$/\2 = \1/g' | sed -s 's/^7/Seven/g' | sed -s 's/+/and/g' | sed -E 's/\s0+/ /g'
+    Circulate_all_modes = 1
+    Seven_colors_change_gradually = 2
+    Seven_colors_run_in_olivary = 3
+    Seven_colors_change_quickly = 4
+    Seven_colors_strobe_flash = 5
+    Seven_colors_running_1_point_from_start_to_end_and_return_back = 6
+    Seven_colors_running_multi_points_from_start_to_end_and_return_back = 7
+    Seven_colors_overlay_multi_points_from_start_to_end_and_return_back = 8
+    Seven_colors_overlay_multi_points_from_the_middle_to_the_both_ends_and_return_back = 9
+    Seven_colors_flow_gradually_from_start_to_end_and_return_back = 10
+    Fading_out_run_7_colors_from_start_to_end_and_return_back = 11
+    Runs_in_olivary_7_colors_from_start_to_end_and_return_back = 12
+    Fading_out_run_7_colors_start_with_white_color_from_start_to_end_and_return_back = 13
+    Run_circularly_7_colors_with_black_background_1point_from_start_to_end = 14
+    Run_circularly_7_colors_with_red_background_1point_from_start_to_end = 15
+    Run_circularly_7_colors_with_green_background_1point_from_start_to_end = 16
+    Run_circularly_7_colors_with_blue_background_1point_from_start_to_end = 17
+    Run_circularly_7_colors_with_yellow_background_1point_from_start_to_end = 18
+    Run_circularly_7_colors_with_purple_background_1point_from_start_to_end = 19
+    Run_circularly_7_colors_with_cyan_background_1point_from_start_to_end = 20
+    Run_circularly_7_colors_with_white_background_1point_from_start_to_end = 21
+    Run_circularly_7_colors_with_black_background_1point_from_end_to_start = 22
+    Run_circularly_7_colors_with_red_background_1point_from_end_to_start = 23
+    Run_circularly_7_colors_with_green_background_1point_from_end_to_start = 24
+    Run_circularly_7_colors_with_blue_background_1point_from_end_to_start = 25
+    Run_circularly_7_colors_with_yellow_background_1point_from_end_to_start = 26
+    Run_circularly_7_colors_with_purple_background_1point_from_end_to_start = 27
+    Run_circularly_7_colors_with_cyan_background_1point_from_end_to_start = 28
+    Run_circularly_7_colors_with_white_background_1point_from_end_to_start = 29
+    Run_circularly_7_colors_with_black_background_1point_from_start_to_end_and_return_back = 30
+    Run_circularly_7_colors_with_red_background_1point_from_start_to_end_and_return_back = 31
+    Run_circularly_7_colors_with_green_background_1point_from_start_to_end_and_return_back = 32
+    Run_circularly_7_colors_with_blue_background_1point_from_start_to_end_and_return_back = 33
+    Run_circularly_7_colors_with_yellow_background_1point_from_start_to_end_and_return_back = 34
+    Run_circularly_7_colors_with_purple_background_1point_from_start_to_end_and_return_back = 35
+    Run_circularly_7_colors_with_cyan_background_1point_from_start_to_end_and_return_back = 36
+    Run_circularly_7_colors_with_white_background_1point_from_start_to_end_and_return_back = 37
+    Run_circularly_7_colors_with_black_background_1point_from_middle_to_both_ends = 38
+    Run_circularly_7_colors_with_red_background_1point_from_middle_to_both_ends = 39
+    Run_circularly_7_colors_with_green_background_1point_from_middle_to_both_ends = 40
+    Run_circularly_7_colors_with_blue_background_1point_from_middle_to_both_ends = 41
+    Run_circularly_7_colors_with_yellow_background_1point_from_middle_to_both_ends = 42
+    Run_circularly_7_colors_with_purple_background_1point_from_middle_to_both_ends = 43
+    Run_circularly_7_colors_with_cyan_background_1point_from_middle_to_both_ends = 44
+    Run_circularly_7_colors_with_white_background_1point_from_middle_to_both_ends = 45
+    Run_circularly_7_colors_with_black_background_1point_from_both_ends_to_middle = 46
+    Run_circularly_7_colors_with_red_background_1point_from_both_ends_to_middle = 47
+    Run_circularly_7_colors_with_green_background_1point_from_both_ends_to_middle = 48
+    Run_circularly_7_colors_with_blue_background_1point_from_both_ends_to_middle = 49
+    Run_circularly_7_colors_with_yellow_background_1point_from_both_ends_to_middle = 50
+    Run_circularly_7_colors_with_purple_background_1point_from_both_ends_to_middle = 51
+    Run_circularly_7_colors_with_cyan_background_1point_from_both_ends_to_middle = 52
+    Run_circularly_7_colors_with_white_background_1point_from_both_ends_to_middle = 53
+    Run_circularly_7_colors_with_black_background_1point_from_middle_to_both_ends_and_return_back = 54
+    Run_circularly_7_colors_with_red_background_1point_from_middle_to_both_ends_and_return_back = 55
+    Run_circularly_7_colors_with_green_background_1point_from_middle_to_both_ends_and_return_back = 56
+    Run_circularly_7_colors_with_blue_background_1point_from_middle_to_both_ends_and_return_back = 57
+    Run_circularly_7_colors_with_yellow_background_1point_from_middle_to_both_ends_and_return_back = 58
+    Run_circularly_7_colors_with_purple_background_1point_from_middle_to_both_ends_and_return_back = 59
+    Run_circularly_7_colors_with_cyan_background_1point_from_middle_to_both_ends_and_return_back = 60
+    Run_circularly_7_colors_with_white_background_1point_from_middle_to_both_ends_and_return_back = 61
+    Overlay_circularly_7_colors_with_black_background_from_start_to_end = 62
+    Overlay_circularly_7_colors_with_red_background_from_start_to_end = 63
+    Overlay_circularly_7_colors_with_green_background_from_start_to_end = 64
+    Overlay_circularly_7_colors_with_blue_background_from_start_to_end = 65
+    Overlay_circularly_7_colors_with_yellow_background_from_start_to_end = 66
+    Overlay_circularly_7_colors_with_purple_background_from_start_to_end = 67
+    Overlay_circularly_7_colors_with_cyan_background_from_start_to_end = 68
+    Overlay_circularly_7_colors_with_white_background_from_start_to_end = 69
+    Overlay_circularly_7_colors_with_black_background_from_end_to_start = 70
+    Overlay_circularly_7_colors_with_red_background_from_end_to_start = 71
+    Overlay_circularly_7_colors_with_green_background_from_end_to_start = 72
+    Overlay_circularly_7_colors_with_blue_background_from_end_to_start = 73
+    Overlay_circularly_7_colors_with_yellow_background_from_end_to_start = 74
+    Overlay_circularly_7_colors_with_purple_background_from_end_to_start = 75
+    Overlay_circularly_7_colors_with_cyan_background_from_end_to_start = 76
+    Overlay_circularly_7_colors_with_white_background_from_end_to_start = 77
+    Overlay_circularly_7_colors_with_black_background_from_start_to_end_and_return_back = 78
+    Overlay_circularly_7_colors_with_red_background_from_start_to_end_and_return_back = 79
+    Overlay_circularly_7_colors_with_green_background_from_start_to_end_and_return_back = 80
+    Overlay_circularly_7_colors_with_blue_background_from_start_to_end_and_return_back = 81
+    Overlay_circularly_7_colors_with_yellow_background_from_start_to_end_and_return_back = 82
+    Overlay_circularly_7_colors_with_purple_background_from_start_to_end_and_return_back = 83
+    Overlay_circularly_7_colors_with_cyan_background_from_start_to_end_and_return_back = 84
+    Overlay_circularly_7_colors_with_white_background_from_start_to_end_and_return_back = 85
+    Overlay_circularly_7_colors_with_black_background_from_middle_to_both_ends = 86
+    Overlay_circularly_7_colors_with_red_background_from_middle_to_both_ends = 87
+    Overlay_circularly_7_colors_with_green_background_from_middle_to_both_ends = 88
+    Overlay_circularly_7_colors_with_blue_background_from_middle_to_both_ends = 89
+    Overlay_circularly_7_colors_with_yellow_background_from_middle_to_both_ends = 90
+    Overlay_circularly_7_colors_with_purple_background_from_middle_to_both_ends = 91
+    Overlay_circularly_7_colors_with_cyan_background_from_middle_to_both_ends = 92
+    Overlay_circularly_7_colors_with_white_background_from_middle_to_both_ends = 93
+    Overlay_circularly_7_colors_with_black_background_from_both_ends_to_middle = 94
+    Overlay_circularly_7_colors_with_red_background_from_both_ends_to_middle = 95
+    Overlay_circularly_7_colors_with_green_background_from_both_ends_to_middle = 96
+    Overlay_circularly_7_colors_with_blue_background_from_both_ends_to_middle = 97
+    Overlay_circularly_7_colors_with_yellow_background_from_both_ends_to_middle = 98
+    Overlay_circularly_7_colors_with_purple_background_from_both_ends_to_middle = 99
+    Overlay_circularly_7_colors_with_cyan_background_from_both_ends_to_middle = 100
+    Overlay_circularly_7_colors_with_white_background_from_both_ends_to_middle = 101
+    Overlay_circularly_7_colors_with_black_background_from_middle_to_both_sides_and_return_back = 102
+    Overlay_circularly_7_colors_with_red_background_from_middle_to_both_sides_and_return_back = 103
+    Overlay_circularly_7_colors_with_green_background_from_middle_to_both_sides_and_return_back = 104
+    Overlay_circularly_7_colors_with_blue_background_from_middle_to_both_sides_and_return_back = 105
+    Overlay_circularly_7_colors_with_yellow_background_from_middle_to_both_sides_and_return_back = 106
+    Overlay_circularly_7_colors_with_purple_background_from_middle_to_both_sides_and_return_back = 107
+    Overlay_circularly_7_colors_with_cyan_background_from_middle_to_both_sides_and_return_back = 108
+    Overlay_circularly_7_colors_with_white_background_from_middle_to_both_sides_and_return_back = 109
+    Fading_out_run_circularly_1point_with_black_background_from_start_to_end = 110
+    Fading_out_run_circularly_1point_with_red_background_from_start_to_end = 111
+    Fading_out_run_circularly_1point_with_green_background_from_start_to_end = 112
+    Fading_out_run_circularly_1point_with_blue_background_from_start_to_end = 113
+    Fading_out_run_circularly_1point_with_yellow_background_from_start_to_end = 114
+    Fading_out_run_circularly_1point_with_purple_background_from_start_to_end = 115
+    Fading_out_run_circularly_1point_with_cyan_background_from_start_to_end = 116
+    Fading_out_run_circularly_1point_with_white_background_from_start_to_end = 117
+    Fading_out_run_circularly_1point_with_black_background_from_end_to_start = 118
+    Fading_out_run_circularly_1point_with_red_background_from_end_to_start = 119
+    Fading_out_run_circularly_1point_with_green_background_from_end_to_start = 120
+    Fading_out_run_circularly_1point_with_blue_background_from_end_to_start = 121
+    Fading_out_run_circularly_1point_with_yellow_background_from_end_to_start = 122
+    Fading_out_run_circularly_1point_with_purple_background_from_end_to_start = 123
+    Fading_out_run_circularly_1point_with_cyan_background_from_end_to_start = 124
+    Fading_out_run_circularly_1point_with_white_background_from_end_to_start = 125
+    Fading_out_run_circularly_1point_with_black_background_from_start_to_end_and_return_back = 126
+    Fading_out_run_circularly_1point_with_red_background_from_start_to_end_and_return_back = 127
+    Fading_out_run_circularly_1point_with_green_background_from_start_to_end_and_return_back = 128
+    Fading_out_run_circularly_1point_with_blue_background_from_start_to_end_and_return_back = 129
+    Fading_out_run_circularly_1point_with_yellow_background_from_start_to_end_and_return_back = 130
+    Fading_out_run_circularly_1point_with_purple_background_from_start_to_end_and_return_back = 131
+    Fading_out_run_circularly_1point_with_cyan_background_from_start_to_end_and_return_back = 132
+    Fading_out_run_circularly_1point_with_white_background_from_start_to_end_and_return_back = 133
+    Flows_in_olivary_circularly_7_colors_with_black_background_from_start_to_end = 134
+    Flows_in_olivary_circularly_7_colors_with_red_background_from_start_to_end = 135
+    Flows_in_olivary_circularly_7_colors_with_green_background_from_start_to_end = 136
+    Flows_in_olivary_circularly_7_colors_with_blue_background_from_start_to_end = 137
+    Flows_in_olivary_circularly_7_colors_with_yellow_background_from_start_to_end = 138
+    Flows_in_olivary_circularly_7_colors_with_purple_background_from_start_to_end = 139
+    Flows_in_olivary_circularly_7_colors_with_cyan_background_from_start_to_end = 140
+    Flows_in_olivary_circularly_7_colors_with_white_background_from_start_to_end = 141
+    Flows_in_olivary_circularly_7_colors_with_black_background_from_end_to_start = 142
+    Flows_in_olivary_circularly_7_colors_with_red_background_from_end_to_start = 143
+    Flows_in_olivary_circularly_7_colors_with_green_background_from_end_to_start = 144
+    Flows_in_olivary_circularly_7_colors_with_blue_background_from_end_to_start = 145
+    Flows_in_olivary_circularly_7_colors_with_yellow_background_from_end_to_start = 146
+    Flows_in_olivary_circularly_7_colors_with_purple_background_from_end_to_start = 147
+    Flows_in_olivary_circularly_7_colors_with_cyan_background_from_end_to_start = 148
+    Flows_in_olivary_circularly_7_colors_with_white_background_from_end_to_start = 149
+    Flows_in_olivary_circularly_7_colors_with_black_background_from_start_to_end_and_return_back = 150
+    Flows_in_olivary_circularly_7_colors_with_red_background_from_start_to_end_and_return_back = 151
+    Flows_in_olivary_circularly_7_colors_with_green_background_from_start_to_end_and_return_back = 152
+    Flows_in_olivary_circularly_7_colors_with_blue_background_from_start_to_end_and_return_back = 153
+    Flows_in_olivary_circularly_7_colors_with_yellow_background_from_start_to_end_and_return_back = 154
+    Flows_in_olivary_circularly_7_colors_with_purple_background_from_start_to_end_and_return_back = 155
+    Flows_in_olivary_circularly_7_colors_with_cyan_background_from_start_to_end_and_return_back = 156
+    Flows_in_olivary_circularly_7_colors_with_white_background_from_start_to_end_and_return_back = 157
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_black_background_from_start_to_end = 158
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_red_background_from_start_to_end = 159
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_green_background_from_start_to_end = 160
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_blue_background_from_start_to_end = 161
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_yellow_background_from_start_to_end = 162
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_purple_background_from_start_to_end = 163
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_cyan_background_from_start_to_end = 164
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_white_background_from_start_to_end = 165
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_black_background_from_end_to_start = 166
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_red_background_from_end_to_start = 167
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_green_background_from_end_to_start = 168
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_blue_background_from_end_to_start = 169
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_yellow_background_from_end_to_start = 170
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_purple_background_from_end_to_start = 171
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_cyan_background_from_end_to_start = 172
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_white_background_from_end_to_start = 173
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_black_background_from_start_to_end_and_return_back = 174
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_red_background_from_start_to_end_and_return_back = 175
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_green_background_from_start_to_end_and_return_back = 176
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_blue_background_from_start_to_end_and_return_back = 177
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_yellow_background_from_start_to_end_and_return_back = 178
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_purple_background_from_start_to_end_and_return_back = 179
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_cyan_background_from_start_to_end_and_return_back = 180
+    Seven_colors_run_circularly_each_color_in_every_1_point_with_white_background_from_start_to_end_and_return_back = 181
+    Seven_colors_run_circularly_each_color_in_multi_points_with_red_background_from_start_to_end = 182
+    Seven_colors_run_circularly_each_color_in_multi_points_with_green_background_from_start_to_end = 183
+    Seven_colors_run_circularly_each_color_in_multi_points_with_blue_background_from_start_to_end = 184
+    Seven_colors_run_circularly_each_color_in_multi_points_with_yellow_background_from_start_to_end = 185
+    Seven_colors_run_circularly_each_color_in_multi_points_with_purple_background_from_start_to_end = 186
+    Seven_colors_run_circularly_each_color_in_multi_points_with_cyan_background_from_start_to_end = 187
+    Seven_colors_run_circularly_each_color_in_multi_points_with_white_background_from_start_to_end = 188
+    Seven_colors_run_circularly_each_color_in_multi_points_with_red_background_from_end_to_start = 189
+    Seven_colors_run_circularly_each_color_in_multi_points_with_green_background_from_end_to_start = 190
+    Seven_colors_run_circularly_each_color_in_multi_points_with_blue_background_from_end_to_start = 191
+    Seven_colors_run_circularly_each_color_in_multi_points_with_yellow_background_from_end_to_start = 192
+    Seven_colors_run_circularly_each_color_in_multi_points_with_purple_background_from_end_to_start = 193
+    Seven_colors_run_circularly_each_color_in_multi_points_with_cyan_background_from_end_to_start = 194
+    Seven_colors_run_circularly_each_color_in_multi_points_with_white_background_from_end_to_start = 195
+    Seven_colors_run_circularly_each_color_in_multi_points_with_red_background_from_start_to_end_and_return_back = 196
+    Seven_colors_run_circularly_each_color_in_multi_points_with_green_background_from_start_to_end_and_return_back = 197
+    Seven_colors_run_circularly_each_color_in_multi_points_with_blue_background_from_start_to_end_and_return_back = 198
+    Seven_colors_run_circularly_each_color_in_multi_points_with_yellow_background_from_start_to_end_and_return_back = 199
+    Seven_colors_run_circularly_each_color_in_multi_points_with_purple_background_from_start_to_end_and_return_back = 200
+    Seven_colors_run_circularly_each_color_in_multi_points_with_cyan_background_from_start_to_end_and_return_back = 201
+    Seven_colors_run_circularly_each_color_in_multi_points_with_white_background_from_start_to_end_and_return_back = 202
+    Fading_out_run_circularly_7_colors_each_in_red_fading_from_start_to_end = 203
+    Fading_out_run_circularly_7_colors_each_in_green_fading_from_start_to_end = 204
+    Fading_out_run_circularly_7_colors_each_in_blue_fading_from_start_to_end = 205
+    Fading_out_run_circularly_7_colors_each_in_yellow_fading_from_start_to_end = 206
+    Fading_out_run_circularly_7_colors_each_in_purple_fading_from_start_to_end = 207
+    Fading_out_run_circularly_7_colors_each_in_cyan_fading_from_start_to_end = 208
+    Fading_out_run_circularly_7_colors_each_in_white_fading_from_start_to_end = 209
+    Fading_out_run_circularly_7_colors_each_in_red_fading_from_end_to_start = 210
+    Fading_out_run_circularly_7_colors_each_in_green_fading_from_end_to_start = 211
+    Fading_out_run_circularly_7_colors_each_in_blue_fading_from_end_to_start = 212
+    Fading_out_run_circularly_7_colors_each_in_yellow_fading_from_end_to_start = 213
+    Fading_out_run_circularly_7_colors_each_in_purple_fading_from_end_to_start = 214
+    Fading_out_run_circularly_7_colors_each_in_cyan_fading_from_end_to_start = 215
+    Fading_out_run_circularly_7_colors_each_in_white_fading_from_end_to_start = 216
+    Fading_out_run_circularly_7_colors_each_in_red_fading_from_start_to_end_and_return_back = 217
+    Fading_out_run_circularly_7_colors_each_in_green_fading_from_start_to_end_and_return_back = 218
+    Fading_out_run_circularly_7_colors_each_in_blue_fading_from_start_to_end_and_return_back = 219
+    Fading_out_run_circularly_7_colors_each_in_yellow_fading_from_start_to_end_and_return_back = 220
+    Fading_out_run_circularly_7_colors_each_in_purple_fading_from_start_to_end_and_return_back = 221
+    Fading_out_run_circularly_7_colors_each_in_cyan_fading_from_start_to_end_and_return_back = 222
+    Fading_out_run_circularly_7_colors_each_in_white_fading_from_start_to_end_and_return_back = 223
+    Seven_colors_each_in_red_run_circularly_multi_points_from_start_to_end = 224
+    Seven_colors_each_in_green_run_circularly_multi_points_from_start_to_end = 225
+    Seven_colors_each_in_blue_run_circularly_multi_points_from_start_to_end = 226
+    Seven_colors_each_in_yellow_run_circularly_multi_points_from_start_to_end = 227
+    Seven_colors_each_in_purple_run_circularly_multi_points_from_start_to_end = 228
+    Seven_colors_each_in_cyan_run_circularly_multi_points_from_start_to_end = 229
+    Seven_colors_each_in_white_run_circularly_multi_points_from_start_to_end = 230
+    Seven_colors_each_in_red_run_circularly_multi_points_from_end_to_start = 231
+    Seven_colors_each_in_green_run_circularly_multi_points_from_end_to_start = 232
+    Seven_colors_each_in_blue_run_circularly_multi_points_from_end_to_start = 233
+    Seven_colors_each_in_yellow_run_circularly_multi_points_from_end_to_start = 234
+    Seven_colors_each_in_purple_run_circularly_multi_points_from_end_to_start = 235
+    Seven_colors_each_in_cyan_run_circularly_multi_points_from_end_to_start = 236
+    Seven_colors_each_in_white_run_circularly_multi_points_from_end_to_start = 237
+    Seven_colors_each_in_red_run_circularly_multi_points_from_start_to_end_and_return_back = 238
+    Seven_colors_each_in_green_run_circularly_multi_points_from_start_to_end_and_return_back = 239
+    Seven_colors_each_in_blue_run_circularly_multi_points_from_start_to_end_and_return_back = 240
+    Seven_colors_each_in_yellow_run_circularly_multi_points_from_start_to_end_and_return_back = 241
+    Seven_colors_each_in_purple_run_circularly_multi_points_from_start_to_end_and_return_back = 242
+    Seven_colors_each_in_cyan_run_circularly_multi_points_from_start_to_end_and_return_back = 243
+    Seven_colors_each_in_white_run_circularly_multi_points_from_start_to_end_and_return_back = 244
+    Flows_gradually_and_circularly_6_colors_with_red_background_from_start_to_end = 245
+    Flows_gradually_and_circularly_6_colors_with_green_background_from_start_to_end = 246
+    Flows_gradually_and_circularly_6_colors_with_blue_background_from_start_to_end = 247
+    Flows_gradually_and_circularly_6_colors_with_yellow_background_from_start_to_end = 248
+    Flows_gradually_and_circularly_6_colors_with_purple_background_from_start_to_end = 249
+    Flows_gradually_and_circularly_6_colors_with_cyan_background_from_start_to_end = 250
+    Flows_gradually_and_circularly_6_colors_with_white_background_from_start_to_end = 251
+    Flows_gradually_and_circularly_6_colors_with_red_background_from_end_to_start = 252
+    Flows_gradually_and_circularly_6_colors_with_green_background_from_end_to_start = 253
+    Flows_gradually_and_circularly_6_colors_with_blue_background_from_end_to_start = 254
+    Flows_gradually_and_circularly_6_colors_with_yellow_background_from_end_to_start = 255
+    Flows_gradually_and_circularly_6_colors_with_purple_background_from_end_to_start = 256
+    Flows_gradually_and_circularly_6_colors_with_cyan_background_from_end_to_start = 257
+    Flows_gradually_and_circularly_6_colors_with_white_background_from_end_to_start = 258
+    Flows_gradually_and_circularly_6_colors_with_red_background_from_start_to_end_and_return_back = 259
+    Flows_gradually_and_circularly_6_colors_with_green_background_from_start_to_end_and_return_back = 260
+    Flows_gradually_and_circularly_6_colors_with_blue_background_from_start_to_end_and_return_back = 261
+    Flows_gradually_and_circularly_6_colors_with_yellow_background_from_start_to_end_and_return_back = 262
+    Flows_gradually_and_circularly_6_colors_with_purple_background_from_start_to_end_and_return_back = 263
+    Flows_gradually_and_circularly_6_colors_with_cyan_background_from_start_to_end_and_return_back = 264
+    Flows_gradually_and_circularly_6_colors_with_white_background_from_start_to_end_and_return_back = 265
+    Seven_colors_run_with_black_background_from_start_to_end = 266
+    Seven_colors_run_with_red_background_from_start_to_end = 267
+    Seven_colors_run_with_green_background_from_start_to_end = 268
+    Seven_colors_run_with_blue_background_from_start_to_end = 269
+    Seven_colors_run_with_yellow_background_from_start_to_end = 270
+    Seven_colors_run_with_purple_background_from_start_to_end = 271
+    Seven_colors_run_with_cyan_background_from_start_to_end = 272
+    Seven_colors_run_with_white_background_from_start_to_end = 273
+    Seven_colors_run_with_black_background_from_end_to_start = 274
+    Seven_colors_run_with_red_background_from_end_to_start = 275
+    Seven_colors_run_with_green_background_from_end_to_start = 276
+    Seven_colors_run_with_blue_background_from_end_to_start = 277
+    Seven_colors_run_with_yellow_background_from_end_to_start = 278
+    Seven_colors_run_with_purple_background_from_end_to_start = 279
+    Seven_colors_run_with_cyan_background_from_end_to_start = 280
+    Seven_colors_run_with_white_background_from_end_to_start = 281
+    Seven_colors_run_with_black_background_from_start_to_end_and_return_back = 282
+    Seven_colors_run_with_red_background_from_start_to_end_and_return_back = 283
+    Seven_colors_run_with_green_background_from_start_to_end_and_return_back = 284
+    Seven_colors_run_with_blue_background_from_start_to_end_and_return_back = 285
+    Seven_colors_run_with_yellow_background_from_start_to_end_and_return_back = 286
+    Seven_colors_run_with_purple_background_from_start_to_end_and_return_back = 287
+    Seven_colors_run_with_cyan_background_from_start_to_end_and_return_back = 288
+    Seven_colors_run_with_white_background_from_start_to_end_and_return_back = 289
+    Seven_colors_run_gradually_and_7_colors_run_in_olivary = 290
+    Seven_colors_run_gradually_and_7_colors_change_quickly = 291
+    Seven_colors_run_gradually_and_7_colors_flash = 292
+    Seven_colors_run_in_olivary_and_7_colors_change_quickly = 293
+    Seven_colors_run_in_olivary_and_7_colors_flash = 294
+    Seven_colors_change_quickly_and_7_colors_flash = 295
+    Seven_colors_run_gradually_and_7_colors_run_in_olivary_and_7_colors_change_quickly = 296
+    Seven_colors_run_gradually_and_7_colors_run_in_olivary_and_7_colors_flash = 297
+    Seven_colors_run_gradually_and_7_colors_change_quickly_and_7_colors_flash = 298
+    Seven_colors_run_in_olivary_and_7_colors_change_quickly_and_7_colors_flash = 299
+    Seven_colors_run_gradually_and_7_colors_run_in_olivary_and_7_colors_change_quickly_and_7_color_flash = 300
+
+    @staticmethod
+    def valid(pattern: int):
+        led_strip_min = 0x064 # = 100 (app   1)
+        led_strip_max = 0x18f # = 399 (app 300)
+        return (pattern >= led_strip_min and pattern <= led_strip_max)
+
+    @staticmethod
+    def valtostr(pattern):
+        if PresetPatternStrip.valid(pattern):
+            # workaround, use 99 to mimic app numbers
+            num = pattern - 99
+            pat = PresetPatternStrip(num)
+            return pat.name
+        else:
+            print(pattern)
+            return '<wrong value>'
 
 class PresetPattern(IntEnum):
     seven_color_cross_fade =   0x25
@@ -193,17 +538,22 @@ class PresetPattern(IntEnum):
     white_strobe_flash =       0x37
     seven_color_jumping =      0x38
 
+
     @classmethod
     def valid(cls, pattern: int):
         return any(pattern == item.value for item in cls)
 
     @staticmethod
-    def valid_strip(pattern: int):
-        return (pattern > 100 and pattern <= 400)
-
-    @staticmethod
     def valtostr(pattern):
-        return pattern.name
+        if PresetPattern.valid(pattern):
+            return pattern.name
+        else:
+            # keep old api
+            if PresetPatternStrip.valid(pattern):
+                return PresetPatternStrip.valtostr(pattern)
+            print(pattern)
+            return '<wrong value>'
+
 
 class BuiltInTimer():
     sunrise = 0xA1
@@ -520,16 +870,403 @@ class StripIC(Enum):
     # IC selection for RGB strips
     UCS1903 = bytearray([0x01, 0x28, 0x0a, 0x0a, 0x28, 0x01, 0xe0])
     SM16703 = bytearray([0x02, 0x12, 0x06, 0x00, 0x12, 0x06, 0x40])
-    WS2811 = bytearray([0x03, 0x28, 0x0a, 0x0a, 0x28, 0x03, 0xe8])
+    WS2811  = bytearray([0x03, 0x28, 0x0a, 0x0a, 0x28, 0x03, 0xe8])
     WS2812B = bytearray([0x04, 0x0e, 0x0c, 0x06, 0x12, 0x03, 0xe8])
-    SK6812 = bytearray([0x05, 0x0c, 0x0c, 0x06, 0x84, 0x06, 0x40])
+    SK6812  = bytearray([0x05, 0x0c, 0x0c, 0x06, 0x84, 0x06, 0x40])
     INK1003 = bytearray([0x06, 0x0c, 0x0c, 0x06, 0x84, 0x06, 0x40])
-    WS2801 = bytearray([0x07, 0x0c, 0x0c, 0x06, 0x84, 0x06, 0x40])
-    LB1914 = bytearray([0x08, 0x0c, 0x0c, 0x06, 0x84, 0x06, 0x40])
+    WS2801  = bytearray([0x07, 0x0c, 0x0c, 0x06, 0x84, 0x06, 0x40])
+    LB1914  = bytearray([0x08, 0x0c, 0x0c, 0x06, 0x84, 0x06, 0x40])
 
     @staticmethod
     def getICFromFirstByte(first_byte):
         return [e for e in StripIC if e.value[0] == first_byte][0]
+
+class FluxLedBase():
+    def __init__(self, ipaddr, port=5577, timeout=5):
+        self.ipaddr = ipaddr
+        self.port = port
+        self.timeout = timeout
+
+        self.raw_state = None
+        self._is_on = False
+        self._mode = None
+        self._socket = None
+        self._lock = threading.Lock()
+        # self._query_len = 0
+        self._use_csum = True
+
+        self._connect()
+
+    def _connect(self):
+        if self._socket is not None:
+            # lets assume its connected
+            return
+
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.settimeout(self.timeout)
+        try:
+            self._socket.connect((self.ipaddr, self.port))
+        except socket.error:
+            self._socket = None
+
+    def _close(self):
+        if self._socket is None:
+            return
+
+        try:
+            self._socket.close()
+        except socket.error:
+            pass
+        self._socket = None
+
+    def _sendMsgAndRcv(self, msg : bytearray, expected : int) -> bytearray:
+        if self._socket is None:
+            self._connect()
+
+        # bail out
+        if self._socket is None:
+            return bytearray()
+
+        # send message
+        self._send(msg)
+
+        rx = self._receive(expected)
+        if len(rx) != expected:
+            print('received amount of data does not match expected!')
+        return rx
+
+    def _send(self, msg : bytearray):
+        if self._socket is None:
+            self._connect()
+
+        # bail out
+        if self._socket is None:
+            return
+
+        # create a copy! Otherwise we append to bytes and modify the callers data, too.
+        b2 = bytearray()
+        b2[:] = msg
+
+        # calculate checksum of byte array and add to end
+        if self._use_csum:
+            csum = sum(msg) & 0xFF
+            b2.append(csum)
+        with self._lock:
+            self._socket.send(b2)
+
+    def _receive(self, expected : int) -> bytearray:
+        if self._socket is None:
+            return bytearray()
+
+        remaining = expected
+        rx = bytearray()
+        begin = time.time()
+
+        while remaining > 0:
+            if time.time() - begin > self.timeout:
+                break
+            try:
+                with self._lock:
+                    self._socket.setblocking(0)
+                    # read as much as possible
+                    # assumption:
+                    #   we send a request -> we receive (one) response
+                    #   everything else is cut off for now
+                    chunk = self._socket.recv(256)
+                    if chunk:
+                        begin = time.time()
+                    remaining -= len(chunk)
+                    rx.extend(chunk)
+            except socket.error:
+                pass
+            finally:
+                self._socket.setblocking(1)
+
+        if len(rx) > expected:
+            # cut off
+            rx = rx[:expected]
+
+        return rx
+
+    def _determineMode(self, pattern_code):
+        # this can be overridden in the subclasses to add more modes!
+        mode = "unknown"
+        if pattern_code in [0x61, 0x62]:
+            mode = "color"
+        elif pattern_code == 0x60:
+            mode = "custom"
+        elif pattern_code == 0x41:
+            mode = "color"
+        elif PresetPattern.valid(pattern_code) or PresetPatternStrip.valid(pattern_code):
+            mode = "preset"
+        elif BuiltInTimer.valid(pattern_code):
+            mode = BuiltInTimer.valtostr(pattern_code)
+        return mode
+
+    def _calculateBrightness(self, rgb, level):
+        hsv = colorsys.rgb_to_hsv(*rgb)
+        return colorsys.hsv_to_rgb(hsv[0], hsv[1], level)
+
+    def getRgb(self) -> tuple:
+        r, g, b, w = self.getRgbw()
+        return r, g, b
+
+    def getRgbw(self) -> tuple:
+        print("override me!")
+        return 0, 0, 0, 0
+
+    def setRgb(self, r, g, b, persist=True, brightness=None):
+        print('override me!')
+        self.setRgbw(r, g, b, 0, persist=persist, brightness=brightness)
+
+    def setRgbw(self, r, g, b, w, persist=True, brightness=None):
+        print('override me!')
+
+    @property
+    def getMode(self) -> str:
+        return self._mode
+
+    @property
+    def is_on(self) -> bool:
+        return self._is_on
+
+    def isOn(self) -> bool:
+        return self.is_on
+
+    @property
+    def brightness(self) -> int:
+        """Return current brightness 0-255.
+
+        For warm white return current led level. For RGB
+        calculate the HSV and return the 'value'.
+        """
+        if self._mode == "ww":
+            return int(self.raw_state[9])
+        else:
+            _, _, v = colorsys.rgb_to_hsv(*self.getRgb())
+            return v
+
+    def update(self):
+        print("override me!")
+
+    def update_state(self):
+        # keep old api
+        self.update()
+
+    def refreshState(self):
+        return self.update()
+
+
+class FluxLedBulb(FluxLedBase):
+    def __init__(self, ipaddr, port=5577, timeout=5):
+        super().__init__(ipaddr, port, timeout)
+
+        # depending on bulb type
+        self._mode = None
+        self._query_len = 0
+        self._protocol = 'LEDENET'
+
+        self._queryType()
+
+    def _queryType(self):
+        pass
+
+
+class FluxLedStrip(FluxLedBase):
+    def __init__(self, ipaddr, port=5577, timeout=5):
+        super().__init__(ipaddr, port, timeout)
+
+        self.raw_strip_state = None
+        self.strip_led_count = None
+        self.strip_wiring = None
+        self.strip_ic = None
+
+        self._query_strip_info()
+        print('FluxLed strip init:')
+        print('\t', 'leds:  ', self.strip_led_count)
+        print('\t', 'ic:    ', self.strip_ic.name)
+        print('\t', 'wiring:', self.strip_wiring.name)
+
+    def __str__(self):
+        power_str = 'ON' if self._is_on else 'OFF'
+
+        rx = self.raw_state
+        mode = self._mode
+        pattern = (rx[3] << 8) + rx[4]
+        delay = rx[5]
+        speed = utils.delayToSpeedStrip(delay)
+
+        if mode == "color":
+            red = rx[6]
+            green = rx[7]
+            blue = rx[8]
+            mode_str = "Color: {}".format((red, green, blue))
+            mode_str += " Brightness: {}".format(self.brightness)
+        elif mode == "preset":
+            pat = PresetPattern.valtostr(pattern)
+            mode_str = "Pattern: {} (Speed {}%)".format(pat, speed)
+        elif mode == "custom":
+            mode_str = "Custom pattern (Speed {}%)".format(speed)
+        elif BuiltInTimer.valid(pattern):
+            mode_str = BuiltInTimer.valtostr(pattern)
+        else:
+            mode_str = "Unknown mode 0x{:x}".format(pattern)
+
+        if pattern == 0x62:
+            mode_str += " (tmp)"
+
+        mode_str += " raw state: " + str(hexlify(self.raw_state))
+        mode_str += " raw strip state: " + str(hexlify(self.raw_strip_state))
+        return "{} [{}]".format(power_str, mode_str)
+
+    def _query_strip_info(self):
+        #pos  0  1  2  3  4  5  6  7  8  9 10 11
+        #    63 00 3c 04 00 00 00 00  00 00 02 a5
+        #     |  |  |  |  |  |  |  |  |  |  |  |
+        #     |  |  |  |  |  |  |  |  |  |  |  checksum
+        #     |  |  |  |  |  |  |  |  |  |  wiring
+        #     |  |  |  |  |  |  |  |  |  ??
+        #     |  |  |  |  |  |  |  |  ??
+        #     |  |  |  |  |  |  |  ??
+        #     |  |  |  |  |  |  ??
+        #     |  |  |  |  |  ??
+        #     |  |  |  |  ??
+        #     |  |  |  ic
+        #     |  |  num pixels (16 bit, low byte)
+        #     |  num pixels (16 bit, high byte)
+        #     msg head
+        #
+        msg = Constants.REQUEST_STRIP_SETTINGS
+        query_len = Constants.RESPONSE_STRIP_SETTINGS_LENGTH
+
+        rx = self._sendMsgAndRcv(msg, query_len)
+
+        if rx[0] != 0x63:
+            print('Unexpected value found! Strip is likely not supported.')
+            return
+
+        self.raw_strip_state = rx
+
+        # number of LEDs
+        self.strip_led_count = (rx[1] << 8) + rx[2]
+
+        # utilized/configured IC
+        try:
+            ic = StripIC(rx[3:10])
+        except:
+            try:
+                ic = StripIC.getICFromFirstByte(rx[3])
+            except:
+                ic = None
+        if ic is None:
+            print('cannot read IC value!')
+        self.strip_ic = ic
+
+        # LED wiring
+        try:
+            wiring = StripWiring(rx[10])
+        except:
+            wiring = None
+        if wiring is None:
+            print('cannot read wiring value!')
+        self.strip_wiring = wiring
+
+    def _query_state(self):
+        msg = Constants.REQUEST_QUERY_STATE
+        rx = self._sendMsgAndRcv(msg, 14)
+        self.raw_state = rx
+
+    def _change_state(self, turn_on=True):
+        msg = bytearray([0x71, Constants.ON if turn_on else Constants.OFF, 0x0f])
+        self._send(msg)
+
+    def update(self):
+        # response from a 3-channel LED strip controller:
+        # pos 0  1  2  3  4  5  6  7  8  9 10 11 12 13
+        #    81 a1 23 00 b2 51 00 ff 00 02 03 00 3c 88
+        #     |  |  |  |  |  |  |  |  |  |  |  |  |  |
+        #     |  |  |  |  preset pattern (lo)
+        #     |  |  |  preset pattern (hi)
+        #
+        # response from a 5-channel LEDENET controller:
+        # pos 0  1  2  3  4  5  6  7  8  9 10 11 12 13
+        #    81 25 23 61 21 06 38 05 06 f9 01 00 0f 9d
+        #     |  |  |  |  |  |  |  |  |  |  |  |  |  |
+        #     |  |  |  |  |  |  |  |  |  |  |  |  |  checksum
+        #     |  |  |  |  |  |  |  |  |  |  |  |  color mode (f0 colors were set, 0f whites, 00 all were set)
+        #     |  |  |  |  |  |  |  |  |  |  |  cold-white
+        #     |  |  |  |  |  |  |  |  |  |  <don't know yet>
+        #     |  |  |  |  |  |  |  |  |  warmwhite
+        #     |  |  |  |  |  |  |  |  blue
+        #     |  |  |  |  |  |  |  green
+        #     |  |  |  |  |  |  red
+        #     |  |  |  |  |  speed: 0f = highest f0 is lowest
+        #     |  |  |  |  <don't know yet>
+        #     |  |  |  preset pattern
+        #     |  |  off(23)/on(24)
+        #     |  type
+        #     msg head
+
+        # update internal state
+        self._query_state()
+
+        rx = self.raw_state
+
+        # LED strip controllers
+        if (rx[1] != 0xa1):
+            print('unexpected answer received!')
+            return
+
+        pattern = (rx[3] << 8) + rx[4]
+        self._mode = self._determineMode(pattern)
+
+        # power_state = rx[2]
+        self._is_on = rx[2] == Constants.ON
+
+    def getRgbw(self):
+        if self._mode != "color":
+            return (255, 255, 255, 255)
+        red = self.raw_state[6]
+        green = self.raw_state[7]
+        blue = self.raw_state[8]
+        white = 0 # always 0, isn't it?
+        return (red, green, blue, white)
+
+    def setRgbw(self, r, g, b, w, persist=True, brightness=None):
+        # remove w
+        self.setRgb(r, g, b, persist, brightness)
+
+    def setRgb(self, r, g, b, persist=True, brightness=None):
+        if brightness != None:
+            (r, g, b) = self._calculateBrightness((r, g, b), brightness)
+
+        msg = bytearray()
+        # persistence
+        msg.append(0x31 if persist else 0x41)
+        # r
+        msg.append(int(r) if r else 0)
+        # g
+        msg.append(int(g) if g else 0)
+        # b
+        msg.append(int(b) if b else 0)
+        # w
+        msg.append(0)
+        # w2 / write mask
+        msg.append(0)
+
+        # Message terminator
+        msg.append(0x0f)
+
+        self._send(msg)
+
+    def turnOn(self, retry=2):
+        self._is_on = True
+        self._change_state(retry, turn_on = True)
+
+    def turnOff(self, retry=2):
+        self._is_on = False
+        self._change_state(retry, turn_on = False)
+
 
 class WifiLedBulb():
     def __init__(self, ipaddr, port=5577, timeout=5):
@@ -594,6 +1331,10 @@ class WifiLedBulb():
             return v
 
     def connect(self, retry=0):
+        # if self._socket is not None:
+        #     # assume socket is connected
+        #     return True
+
         self.close()
         try:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -602,6 +1343,7 @@ class WifiLedBulb():
             self.is_available = True
             return True
         except socket.error:
+            self._socket = None
             if retry < 1:
                 self.is_available = False
                 return False
@@ -630,6 +1372,8 @@ class WifiLedBulb():
             mode = "color"
         elif PresetPattern.valid(pattern_code):
             mode = "preset"
+        elif PresetPatternStrip.valid(pattern_code):
+            mode = "preset"
         elif BuiltInTimer.valid(pattern_code):
             mode = BuiltInTimer.valtostr(pattern_code)
         return mode
@@ -637,14 +1381,14 @@ class WifiLedBulb():
     def _determine_query_len(self, retry = 2):
         # determine the type of protocol based of first 2 bytes.
         self._send_msg(Constants.REQUEST_QUERY_STATE)
-        rx = self._read_msg(2)
+        rx = self._read_msg(14)[0:2]
         # if any response is recieved, use the default protocol
         if len(rx) == 2:
             self._query_len = 14
             return
         # if no response from default received, next try the original protocol
         self._send_msg(Constants.LEDENET_ORIGINAL_REQUEST_QUERY_STATE)
-        rx = self._read_msg(2)
+        rx = self._read_msg(11)
         if rx[1] == 0x01:
             self.protocol = 'LEDENET_ORIGINAL'
             self._use_csum = False
@@ -680,6 +1424,7 @@ class WifiLedBulb():
                 self._is_on = False
                 return rx
             return self.query_state(max(retry-1, 0), led_type)
+
         return rx
 
     def query_strip_state(self, retry=2):
@@ -716,6 +1461,7 @@ class WifiLedBulb():
 
     def update_state(self, retry=2):
         rx = self.query_state(retry)
+
         if rx is None or len(rx) < self._query_len:
             self._is_on = False
             return
@@ -737,9 +1483,14 @@ class WifiLedBulb():
         #     msg head
         #    
         # response from a 3-channel LED strip controller:
+        # pos 0  1  2  3  4  5  6  7  8  9 10 11 12 13
         #    81 a1 23 00 b2 51 00 ff 00 02 03 00 3c 88
+        #     |  |  |  |  |  |  |  |  |  |  |  |  |  |
+        #     |  |  |  |  preset pattern (lo)
+        #     |  |  |  preset pattern (hi)
+        #
         # response from a 5-channel LEDENET controller:
-        #pos  0  1  2  3  4  5  6  7  8  9 10 11 12 13
+        # pos 0  1  2  3  4  5  6  7  8  9 10 11 12 13
         #    81 25 23 61 21 06 38 05 06 f9 01 00 0f 9d
         #     |  |  |  |  |  |  |  |  |  |  |  |  |  |
         #     |  |  |  |  |  |  |  |  |  |  |  |  |  checksum
@@ -793,19 +1544,16 @@ class WifiLedBulb():
             pattern = rx[3]
             ww_level = rx[9]
             mode = self._determineMode(ww_level, pattern)
-            if mode == "unknown":
-                if retry < 1:
-                    return
-                self.update_state(max(retry-1, 0))
-                return
         else:
-            pattern = rx[3] << 8 + rx[4]
+            pattern = (rx[3] << 8) + rx[4]
             mode = self._determineMode(0, pattern)
-            if mode == "unknown":
-                if retry < 1:
-                    return
-                self.update_state(max(retry-1, 0))
+
+        # retry if not successfully yet
+        if mode == "unknown":
+            if retry < 1:
                 return
+            self.update_state(max(retry-1, 0))
+            return
         
         power_state = rx[2]
 
@@ -821,7 +1569,10 @@ class WifiLedBulb():
         rx = self.raw_state
         mode = self.mode
 
-        pattern = rx[3]
+        if not self.stripprotocol:
+            pattern = rx[3]
+        else:
+            pattern = (rx[3] << 8) + rx[4]
         ww_level = rx[9]
         power_state = rx[2]
         power_str = "Unknown power state"
@@ -832,7 +1583,10 @@ class WifiLedBulb():
             power_str = "OFF "
 
         delay = rx[5]
-        speed = utils.delayToSpeed(delay)
+        if self.stripprotocol:
+            speed = utils.delayToSpeedStrip(delay)
+        else:
+            speed = utils.delayToSpeed(delay)
         if mode == "color":
             red = rx[6]
             green = rx[7]
@@ -1090,12 +1844,16 @@ class WifiLedBulb():
         return colorsys.hsv_to_rgb(hsv[0], hsv[1], level)
 
     def _send_msg(self, bytes, checksum=True):
+        # create a copy! Otherwise we append to bytes and modify the callers data, too.
+        b2 = bytearray()
+        b2[:] = bytes
+
         # calculate checksum of byte array and add to end
         if checksum and self._use_csum:
             csum = sum(bytes) & 0xFF
-            bytes.append(csum)
+            b2.append(csum)
         with self._lock:
-            self._socket.send(bytes)
+            self._socket.send(b2)
 
     def _read_msg(self, expected):
         remaining = expected
@@ -1159,7 +1917,10 @@ class WifiLedBulb():
             #print "Pattern must be between 0x25 and 0x38"
             raise Exception
 
-        delay = utils.speedToDelay(speed)
+        if self.stripprotocol:
+            delay = utils.speedToDelayStrip(speed)
+        else:
+            delay = utils.speedToDelay(speed)
         #print "speed {}, delay 0x{:02x}".format(speed,delay)
         pattern_set_msg = bytearray([0x61])
         if self.stripprotocol:

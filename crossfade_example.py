@@ -15,7 +15,7 @@ from itertools import cycle
 
 this_folder = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(this_folder)
-from flux_led import WifiLedBulb, BulbScanner, LedTimer
+from flux_led import WifiLedBulb, BulbScanner, LedTimer, FluxLedStrip
 
 def crossFade(bulb, color1, color2):
 
@@ -41,7 +41,7 @@ def main():
 	
 	if bulb_info:	
 
-		bulb = WifiLedBulb(bulb_info['ipaddr'])
+		bulb = FluxLedStrip(bulb_info['ipaddr'])
 
 		color_time = 5 # seconds on each color
 		
@@ -83,7 +83,7 @@ def main():
 			color = next_color
 
 	else:
-		print "Can't find bulb"                   
+		print("Can't find bulb")
 
 if __name__ == '__main__':
 	main()
