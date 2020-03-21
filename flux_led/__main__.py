@@ -967,6 +967,8 @@ class WifiLedBulb():
             mode = "color"
         elif PresetPattern.valid(pattern_code):
             mode = "preset"
+        elif PresetPatternStrip.valid(pattern_code):
+            mode = "preset"
         elif BuiltInTimer.valid(pattern_code):
             mode = BuiltInTimer.valtostr(pattern_code)
         return mode
@@ -1142,7 +1144,7 @@ class WifiLedBulb():
                 self.update_state(max(retry - 1, 0))
                 return
         else:
-            pattern = rx[3] << 8 + rx[4]
+            pattern = (rx[3] << 8) + rx[4]
             mode = self._determineMode(0, pattern)
             if mode == "unknown":
                 if retry < 1:
@@ -1627,6 +1629,11 @@ class WifiLedBulb():
     def refreshState(self):
         return self.update_state()
 
+    def effect_list(self) -> list:
+        if self.stripprotocol:
+            return list(PresetPatternStrip)
+        else:
+            return list(PresetPattern)
 
 class BulbScanner():
     def __init__(self):
