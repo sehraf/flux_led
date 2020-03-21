@@ -1635,6 +1635,12 @@ class WifiLedBulb():
         else:
             return list(PresetPattern)
 
+    def effect_current(self) -> int:
+        if not self.stripprotocol:
+            return self.raw_state[3]
+        else:
+            return (self.raw_state[3] << 8) + self.raw_state[4]
+
 class BulbScanner():
     def __init__(self):
         self.found_bulbs = []
