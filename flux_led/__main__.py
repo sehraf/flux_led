@@ -1639,7 +1639,7 @@ class WifiLedBulb():
         if not self.stripprotocol:
             return self.raw_state[3]
         else:
-            return (self.raw_state[3] << 8) + self.raw_state[4]
+            return (self.raw_state[3] << 8) + self.raw_state[4] - 99
 
 class BulbScanner():
     def __init__(self):
