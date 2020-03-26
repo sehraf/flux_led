@@ -485,13 +485,21 @@ class PresetPatternStrip(IntEnum):
     @staticmethod
     def valtostr(pattern):
         if PresetPatternStrip.valid(pattern):
-            # workaround, use 99 to mimic app numbers
-            num = pattern - 99
+            num = PresetPatternStrip.from_internal(pattern)
             pat = PresetPatternStrip(num)
             return pat.name
         else:
             print(pattern)
             return '<wrong value>'
+
+    @staticmethod
+    def to_internal(pattern : int) -> int:
+        return pattern + 99
+
+    @staticmethod
+    def from_internal(pattern : int) -> int:
+        return pattern - 99
+
 
 class PresetPattern(IntEnum):
     seven_color_cross_fade = 0x25
@@ -1509,7 +1517,10 @@ class WifiLedBulb():
         self.protocol = protocol.upper()
 
     def setPresetPattern(self, pattern, speed):
-        if not (PresetPattern.valid(pattern) or (self.stripprotocol and PresetPattern.valid_strip(pattern))):
+        if not (
+            PresetPattern.valid(pattern)
+            or (self.stripprotocol and PresetPattern.valid_strip(PresetPatternStrip.to_internal(pattern)))
+        ):
             # print "Pattern must be between 0x25 and 0x38"
             raise Exception
 
@@ -1520,8 +1531,8 @@ class WifiLedBulb():
         # print "speed {}, delay 0x{:02x}".format(speed,delay)
         pattern_set_msg = bytearray([0x61])
         if self.stripprotocol:
-            pattern_set_msg.append(pattern >> 8)
-            pattern_set_msg.append(pattern & 0xFF)
+            pattern_set_msg.append(PresetPatternStrip.to_internal(pattern) >> 8)
+            pattern_set_msg.append(PresetPatternStrip.to_internal(pattern) & 0xFF)
         else:
             pattern_set_msg.append(pattern)
         pattern_set_msg.append(delay)
@@ -1639,7 +1650,8 @@ class WifiLedBulb():
         if not self.stripprotocol:
             return self.raw_state[3]
         else:
-            return (self.raw_state[3] << 8) + self.raw_state[4] - 99
+            pattern = (self.raw_state[3] << 8) + self.raw_state[4]
+            return PresetPatternStrip.from_internal(pattern)
 
 class BulbScanner():
     def __init__(self):
